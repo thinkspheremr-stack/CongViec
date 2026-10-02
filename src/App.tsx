@@ -21,7 +21,8 @@ import {
   TaskStatus, 
   ProjectStatus, 
   ScannedDocument,
-  ProjectDetailItem
+  ProjectDetailItem,
+  AttachedDocSection
 } from './types';
 import { 
   INITIAL_PROJECTS, 
@@ -315,12 +316,134 @@ export const App: React.FC = () => {
   // Tìm dự án đang hoạt động
   const activeProject = projects.find(p => p.id === activeProjectId) || projects[0] || INITIAL_PROJECTS[0];
 
-  // Lưu / Cập nhật dự án
+  // Lưu / Cập nhật dự án với cơ chế ĐỒNG BỘ 2 CHIỀU giữa Dự án chính và Dự án con
   const handleSaveProject = (projectData: Partial<Project>) => {
     const targetId = projectData.id || editingProject?.id;
     if (targetId && projects.some(p => p.id === targetId)) {
-      // Cập nhật dự án đã tồn tại (từ modal sửa hoặc auto-save từ biểu mẫu chi tiết)
-      setProjects(prev => prev.map(p => p.id === targetId ? { ...p, ...projectData, id: targetId } : p));
+      // Cập nhật dự án đã tồn tại
+      setProjects(prev => {
+        let updatedList = prev.map(p => p.id === targetId ? { ...p, ...projectData, id: targetId } : p);
+        const updatedTarget = updatedList.find(p => p.id === targetId);
+        if (!updatedTarget) return updatedList;
+
+        // CHIỀU 1: Nếu target là Dự án A (chứa các section đã chuyển thành dự án con B):
+        // Mọi thay đổi ở section này của Dự án A sẽ đồng bộ sang detailItems của Dự án B tương ứng
+        if (updatedTarget.attachedSections && updatedTarget.attachedSections.length > 0) {
+          updatedTarget.attachedSections.forEach(sec => {
+            if (sec.convertedToProjectId) {
+              const subId = sec.convertedToProjectId;
+              updatedList = updatedList.map(p => {
+                if (p.id === subId) {
+                  return {
+                    ...p,
+                    detailItems: (sec.items || []).map((it, idx) => ({
+                      id: it.id || `det-${p.id}-${idx + 1}`,
+                      stt: it.stt || idx + 1,
+                      content: it.content || '',
+                      day: it.day || '',
+                      month: it.month || '',
+                      year: it.year || '',
+                      docNumber: it.docNumber || '',
+                      docText: it.docText || '',
+                      driveFileId: it.driveFileId,
+                      driveFileName: it.driveFileName,
+                      driveFileLink: it.driveFileLink,
+                      driveFilePath: it.driveFilePath,
+                      isStartDateSelected: idx === 0
+                    })),
+                    detailNote: sec.note !== undefined ? sec.note : p.detailNote,
+                    detailStorageLocation: sec.storageLocation !== undefined ? sec.storageLocation : p.detailStorageLocation,
+                    storageLocation: sec.storageLocation !== undefined ? sec.storageLocation : p.storageLocation,
+                    parentProjectId: updatedTarget.id,
+                    parentProject: `[${updatedTarget.code}] ${updatedTarget.name}`
+                  };
+                }
+                return p;
+              });
+            }
+          });
+        }
+
+        // CHIỀU 2: Nếu target là Dự án B (Dự án con có parentProjectId trỏ về Dự án A):
+        // Mọi thay đổi ở detailItems của Dự án B sẽ đồng bộ sang section dự án con tương ứng trong Dự án A
+        if (updatedTarget.parentProjectId) {
+          const parentId = updatedTarget.parentProjectId;
+          updatedList = updatedList.map(p => {
+            if (p.id === parentId) {
+              const currentSections = p.attachedSections || [];
+              const hasMatchingSection = currentSections.some(s => s.convertedToProjectId === updatedTarget.id);
+
+              const updatedSections = currentSections.map(sec => {
+                if (sec.convertedToProjectId === updatedTarget.id) {
+                  return {
+                    ...sec,
+                    title: sec.title && sec.title !== 'Tài liệu kèm theo' ? sec.title : `Dự án con: [${updatedTarget.code}] ${updatedTarget.name}`,
+                    convertedToProjectName: updatedTarget.name,
+                    convertedToProjectCode: updatedTarget.code,
+                    note: updatedTarget.detailNote !== undefined ? updatedTarget.detailNote : sec.note,
+                    storageLocation: updatedTarget.detailStorageLocation || updatedTarget.storageLocation || sec.storageLocation,
+                    items: (updatedTarget.detailItems || []).map((it, idx) => ({
+                      id: it.id || `att-${sec.id}-${idx + 1}`,
+                      stt: it.stt || idx + 1,
+                      content: it.content || '',
+                      day: it.day || '',
+                      month: it.month || '',
+                      year: it.year || '',
+                      docNumber: it.docNumber || '',
+                      docText: it.docText || '',
+                      driveFileId: it.driveFileId,
+                      driveFileName: it.driveFileName,
+                      driveFileLink: it.driveFileLink,
+                      driveFilePath: it.driveFilePath
+                    }))
+                  };
+                }
+                return sec;
+              });
+
+              if (!hasMatchingSection && updatedTarget.projectKind === 'sub') {
+                const newSubSec: AttachedDocSection = {
+                  id: `sec-sub-${updatedTarget.id}`,
+                  title: `Dự án con: [${updatedTarget.code}] ${updatedTarget.name}`,
+                  note: updatedTarget.detailNote || '',
+                  storageLocation: updatedTarget.detailStorageLocation || updatedTarget.storageLocation || '',
+                  convertedToProjectId: updatedTarget.id,
+                  convertedToProjectName: updatedTarget.name,
+                  convertedToProjectCode: updatedTarget.code,
+                  convertedAt: new Date().toISOString(),
+                  items: (updatedTarget.detailItems || []).map((it, idx) => ({
+                    id: it.id || `att-sub-${idx + 1}`,
+                    stt: it.stt || idx + 1,
+                    content: it.content || '',
+                    day: it.day || '',
+                    month: it.month || '',
+                    year: it.year || '',
+                    docNumber: it.docNumber || '',
+                    docText: it.docText || '',
+                    driveFileId: it.driveFileId,
+                    driveFileName: it.driveFileName,
+                    driveFileLink: it.driveFileLink,
+                    driveFilePath: it.driveFilePath
+                  }))
+                };
+                return {
+                  ...p,
+                  attachedSections: [...currentSections, newSubSec]
+                };
+              }
+
+              return {
+                ...p,
+                attachedSections: updatedSections
+              };
+            }
+            return p;
+          });
+        }
+
+        return updatedList;
+      });
+
       if (editingProject) {
         setEditingProject(null);
       }

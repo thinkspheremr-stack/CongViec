@@ -308,28 +308,87 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
   const [detailNote, setDetailNote] = useState(project.detailNote || '');
 
   const [detailItems, setDetailItems] = useState<ProjectDetailItem[]>(() => {
-    if (project.detailItems && Array.isArray(project.detailItems)) return project.detailItems;
-    return [];
+    let initialItems = project.detailItems && Array.isArray(project.detailItems) ? project.detailItems : [];
+    if (project.parentProjectId && allProjects) {
+      const parentProj = allProjects.find(p => p.id === project.parentProjectId);
+      const matchingSec = parentProj?.attachedSections?.find(s => s.convertedToProjectId === project.id);
+      if (matchingSec && matchingSec.items && matchingSec.items.length > 0) {
+        initialItems = matchingSec.items.map((it, idx) => ({
+          id: it.id || `det-${project.id}-${idx + 1}`,
+          stt: it.stt || idx + 1,
+          content: it.content || '',
+          day: it.day || '',
+          month: it.month || '',
+          year: it.year || '',
+          docNumber: it.docNumber || '',
+          docText: it.docText || '',
+          driveFileId: it.driveFileId,
+          driveFileName: it.driveFileName,
+          driveFileLink: it.driveFileLink,
+          driveFilePath: it.driveFilePath,
+          isStartDateSelected: idx === 0
+        }));
+      }
+    }
+    return initialItems;
   });
 
   const [attachedSections, setAttachedSections] = useState<AttachedDocSection[]>(() => {
+    let sections: AttachedDocSection[] = [];
     if (project.attachedSections && Array.isArray(project.attachedSections) && project.attachedSections.length > 0) {
-      return project.attachedSections;
-    }
-    if (project.attachedDocuments && project.attachedDocuments.length > 0) {
-      return [{
+      sections = project.attachedSections;
+    } else if (project.attachedDocuments && project.attachedDocuments.length > 0) {
+      sections = [{
         id: 'sec-1',
         title: 'Tài liệu kèm theo',
         note: project.attachedDocsNote || '',
+        storageLocation: project.storageLocation || '',
         items: project.attachedDocuments
       }];
+    } else {
+      sections = [{
+        id: 'sec-1',
+        title: 'Tài liệu kèm theo',
+        note: project.attachedDocsNote || '',
+        storageLocation: '',
+        items: []
+      }];
     }
-    return [{
-      id: 'sec-1',
-      title: 'Tài liệu kèm theo',
-      note: project.attachedDocsNote || '',
-      items: []
-    }];
+
+    if (allProjects) {
+      sections = sections.map(sec => {
+        if (sec.convertedToProjectId) {
+          const subProj = allProjects.find(p => p.id === sec.convertedToProjectId);
+          if (subProj && subProj.detailItems) {
+            return {
+              ...sec,
+              title: sec.title && sec.title !== 'Tài liệu kèm theo' ? sec.title : `Dự án con: [${subProj.code}] ${subProj.name}`,
+              convertedToProjectName: subProj.name,
+              convertedToProjectCode: subProj.code,
+              note: subProj.detailNote !== undefined ? subProj.detailNote : sec.note,
+              storageLocation: subProj.detailStorageLocation || subProj.storageLocation || sec.storageLocation,
+              items: subProj.detailItems.map((it, idx) => ({
+                id: it.id || `att-${sec.id}-${idx + 1}`,
+                stt: it.stt || idx + 1,
+                content: it.content || '',
+                day: it.day || '',
+                month: it.month || '',
+                year: it.year || '',
+                docNumber: it.docNumber || '',
+                docText: it.docText || '',
+                driveFileId: it.driveFileId,
+                driveFileName: it.driveFileName,
+                driveFileLink: it.driveFileLink,
+                driveFilePath: it.driveFilePath
+              }))
+            };
+          }
+        }
+        return sec;
+      });
+    }
+
+    return sections;
   });
 
   const [isSavedNotice, setIsSavedNotice] = useState(false);
@@ -447,27 +506,89 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
     setDetailStorageLocation(project.detailStorageLocation || project.storageLocation || '');
     
     setRelatedPackages(project.relatedPackages || []);
-    setDetailItems(project.detailItems || []);
+
+    // 1. Đồng bộ Detail Items (nếu là Dự án con B):
+    let loadedDetailItems = project.detailItems && Array.isArray(project.detailItems) ? project.detailItems : [];
+    if (project.parentProjectId && allProjects) {
+      const parentProj = allProjects.find(p => p.id === project.parentProjectId);
+      const matchingSec = parentProj?.attachedSections?.find(s => s.convertedToProjectId === project.id);
+      if (matchingSec && matchingSec.items && matchingSec.items.length > 0) {
+        loadedDetailItems = matchingSec.items.map((it, idx) => ({
+          id: it.id || `det-${project.id}-${idx + 1}`,
+          stt: it.stt || idx + 1,
+          content: it.content || '',
+          day: it.day || '',
+          month: it.month || '',
+          year: it.year || '',
+          docNumber: it.docNumber || '',
+          docText: it.docText || '',
+          driveFileId: it.driveFileId,
+          driveFileName: it.driveFileName,
+          driveFileLink: it.driveFileLink,
+          driveFilePath: it.driveFilePath,
+          isStartDateSelected: idx === 0
+        }));
+      }
+    }
+    setDetailItems(loadedDetailItems);
+
+    // 2. Đồng bộ Attached Sections (nếu là Dự án cha A):
+    let loadedSections: AttachedDocSection[] = [];
     if (project.attachedSections && project.attachedSections.length > 0) {
-      setAttachedSections(project.attachedSections);
+      loadedSections = project.attachedSections;
     } else if (project.attachedDocuments && project.attachedDocuments.length > 0) {
-      setAttachedSections([{
+      loadedSections = [{
         id: 'sec-1',
         title: 'Tài liệu kèm theo',
         note: project.attachedDocsNote || '',
         storageLocation: project.storageLocation || '',
         items: project.attachedDocuments
-      }]);
+      }];
     } else {
-      setAttachedSections([{
+      loadedSections = [{
         id: 'sec-1',
         title: 'Tài liệu kèm theo',
         note: '',
         storageLocation: '',
         items: []
-      }]);
+      }];
     }
-  }, [project.id]);
+
+    if (allProjects) {
+      loadedSections = loadedSections.map(sec => {
+        if (sec.convertedToProjectId) {
+          const subProj = allProjects.find(p => p.id === sec.convertedToProjectId);
+          if (subProj && subProj.detailItems) {
+            return {
+              ...sec,
+              title: sec.title && sec.title !== 'Tài liệu kèm theo' ? sec.title : `Dự án con: [${subProj.code}] ${subProj.name}`,
+              convertedToProjectName: subProj.name,
+              convertedToProjectCode: subProj.code,
+              note: subProj.detailNote !== undefined ? subProj.detailNote : sec.note,
+              storageLocation: subProj.detailStorageLocation || subProj.storageLocation || sec.storageLocation,
+              items: subProj.detailItems.map((it, idx) => ({
+                id: it.id || `att-${sec.id}-${idx + 1}`,
+                stt: it.stt || idx + 1,
+                content: it.content || '',
+                day: it.day || '',
+                month: it.month || '',
+                year: it.year || '',
+                docNumber: it.docNumber || '',
+                docText: it.docText || '',
+                driveFileId: it.driveFileId,
+                driveFileName: it.driveFileName,
+                driveFileLink: it.driveFileLink,
+                driveFilePath: it.driveFilePath
+              }))
+            };
+          }
+        }
+        return sec;
+      });
+    }
+
+    setAttachedSections(loadedSections);
+  }, [project.id, allProjects]);
 
   // Bộ lắng nghe Tự động lưu với cơ chế Debounce
   useEffect(() => {
@@ -906,6 +1027,7 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
       if (s.id === convertModalSection.id) {
         return {
           ...s,
+          title: s.title && s.title !== 'Tài liệu kèm theo' ? s.title : `Dự án con: [${newCreatedProject.code}] ${newCreatedProject.name}`,
           convertedToProjectId: newCreatedProject.id,
           convertedToProjectName: newCreatedProject.name,
           convertedToProjectCode: newCreatedProject.code,
@@ -1942,6 +2064,36 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
 
         {/* SECTION: Chi tiết */}
         <div className="pt-6 space-y-3">
+          {/* Thông báo đồng bộ 2 chiều với dự án chính nếu là dự án con */}
+          {parentProjectId && (() => {
+            const parentProj = allProjects?.find(p => p.id === parentProjectId);
+            return (
+              <div className="flex flex-wrap items-center justify-between gap-2.5 bg-emerald-950/70 border border-emerald-500/80 p-3 rounded-xl text-xs text-emerald-200 print:hidden shadow-sm">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="font-bold text-white">Đồng bộ 2 chiều với Dự án chính:</span>
+                  <span className="bg-emerald-900/80 text-emerald-200 px-2 py-0.5 rounded font-mono font-bold border border-emerald-700">
+                    [{parentProj?.code || 'DA'}] {parentProj?.name || parentProjectName}
+                  </span>
+                </div>
+                <div className="text-[11px] text-emerald-300 italic">
+                  (Mọi nội dung thêm / sửa / xóa tại bảng Chi tiết này tự động đồng bộ sang mục Dự án con trong [{parentProj?.code || 'DA'}])
+                </div>
+                {parentProj && onSelectProject && (
+                  <button
+                    type="button"
+                    onClick={() => handleJumpToProject(parentProj.id)}
+                    className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer shadow transition-all ml-auto"
+                    title={`Chuyển sang xem Dự án chính [${parentProj.code}] ${parentProj.name}`}
+                  >
+                    <span>Về Dự án chính</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
           <div className="flex flex-col lg:flex-row lg:items-center gap-3 justify-between bg-slate-950/70 p-3 sm:p-4 rounded-xl border border-slate-700/80">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="w-2.5 h-2.5 rounded-full bg-blue-400"></div>
@@ -2238,17 +2390,21 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
                     )}
                   </div>
 
-                  {/* Nút / Note: Chuyển thành dự án mới (vị trí viền đỏ người dùng khoanh) */}
+                  {/* Nút / Note: Chuyển thành dự án mới */}
                   <div className="flex items-center gap-2 print:hidden self-start sm:self-auto">
                     {section.convertedToProjectId ? (
-                      <div className="inline-flex items-center gap-2 bg-emerald-950/90 border-2 border-emerald-500/80 rounded-xl px-3 py-1.5 shadow-md">
+                      <div className="flex flex-wrap items-center gap-2 bg-emerald-950/90 border-2 border-emerald-500/80 rounded-xl px-3 py-1.5 shadow-md">
                         <div className="flex items-center gap-1.5 text-xs text-emerald-300">
                           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                          <span>Đã tạo dự án mới:</span>
-                          <span className="font-bold text-white max-w-[180px] sm:max-w-[240px] truncate" title={section.convertedToProjectName}>
+                          <span className="font-semibold text-emerald-200">Dự án con:</span>
+                          <span className="font-bold text-white max-w-[180px] sm:max-w-[260px] truncate" title={section.convertedToProjectName}>
                             [{section.convertedToProjectCode}] {section.convertedToProjectName}
                           </span>
                         </div>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-900/80 border border-emerald-700/80 px-2 py-0.5 rounded-full" title="Tự động đồng bộ 2 chiều: Mọi thay đổi ở bảng này và phần Chi tiết của Dự án con luôn cập nhật cùng nhau">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          Đồng bộ 2 chiều
+                        </span>
                         {onSelectProject && (
                           <button
                             type="button"
@@ -2309,10 +2465,10 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
                                 const fullOld = getCurrentFullProject();
                                 onCreateProjectFromSection(recoveredProject, fullOld);
                               }
-                              onSelectProject(targetId);
+                              handleJumpToProject(targetId);
                             }}
                             className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg shadow transition-all cursor-pointer"
-                            title="Mở biểu chi tiết của dự án này"
+                            title="Mở biểu chi tiết của dự án con này"
                           >
                             <span>Xem dự án</span>
                             <ArrowUpRight className="w-3 h-3" />
@@ -2341,6 +2497,13 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
                     )}
                   </div>
                 </div>
+
+                {section.convertedToProjectId && (
+                  <div className="flex items-center gap-2 bg-emerald-950/40 border border-emerald-800/60 px-3 py-1.5 rounded-lg text-xs text-emerald-200 print:hidden">
+                    <span className="font-bold text-emerald-300 shrink-0">💡 Toàn bộ nội dung Dự án con:</span>
+                    <span>Nội dung của <strong>[{section.convertedToProjectCode}] {section.convertedToProjectName}</strong> được hiển thị và đồng bộ trực tiếp tại bảng dưới đây. Bạn có thể theo dõi và chỉnh sửa đầy đủ mà không cần chuyển sang Dự án con.</span>
+                  </div>
+                )}
 
                 <div className="w-full">
                   <input
