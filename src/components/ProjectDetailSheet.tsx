@@ -34,6 +34,8 @@ import {
 } from 'lucide-react';
 import { 
   Project, 
+  ItemType,
+  getProjectItemTypes,
   RelatedPackage, 
   ProjectDetailItem, 
   AttachedDocumentItem,
@@ -230,7 +232,25 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
   onOpenScanModal,
   onOpenBackupModal
 }) => {
-  const [itemType, setItemType] = useState<'project' | 'package' | 'item'>(project.itemType || 'project');
+  const [itemTypes, setItemTypes] = useState<ItemType[]>(() => getProjectItemTypes(project));
+  const itemType = itemTypes[0] || 'project';
+
+  const handleToggleItemType = (type: ItemType) => {
+    setItemTypes(prev => {
+      if (prev.includes(type)) {
+        if (prev.length <= 1) {
+          return prev; // Giữ lại ít nhất 1 mục đã chọn
+        }
+        return prev.filter(t => t !== type);
+      } else {
+        return [...prev, type];
+      }
+    });
+  };
+
+  const setItemType = (type: ItemType) => {
+    handleToggleItemType(type);
+  };
   const [code, setCode] = useState(project.code || 'DA-018');
   const [name, setName] = useState(project.name || '');
   const [driveFolderPath, setDriveFolderPath] = useState(
@@ -265,11 +285,8 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
   const [parentProjectName, setParentProjectName] = useState(project.parentProject || '');
 
   const [relatedPackages, setRelatedPackages] = useState<RelatedPackage[]>(() => {
-    if (project.relatedPackages && project.relatedPackages.length > 0) return project.relatedPackages;
-    return [
-      { id: 'pkg-1', name: 'gói thầu : 1 Cung cấp & Lắp đặt Cơ điện MEP', link: 'https://drive.google.com' },
-      { id: 'pkg-2', name: 'gói thầu 2 : Tư vấn Thẩm tra Thiết kế Kỹ thuật & PCCC', link: 'https://drive.google.com' }
-    ];
+    if (project.relatedPackages && Array.isArray(project.relatedPackages)) return project.relatedPackages;
+    return [];
   });
 
   const [projectKind, setProjectKind] = useState<'sub' | 'main'>(project.projectKind || 'main');
@@ -291,39 +308,14 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
   const [detailNote, setDetailNote] = useState(project.detailNote || '');
 
   const [detailItems, setDetailItems] = useState<ProjectDetailItem[]>(() => {
-    if (project.detailItems && project.detailItems.length > 0) return project.detailItems;
-    return [
-      {
-        id: `det-${Date.now()}-1`,
-        stt: 1,
-        content: 'Phê duyệt Kế hoạch Tổng tiến độ thi công',
-        day: '05',
-        month: '06',
-        year: '2026',
-        docNumber: '128',
-        docText: '/QĐ-BQLDA',
-        driveFileName: 'Quyet_dinh_128_Phe_duyet_Ke_hoach.pdf',
-        driveFileLink: 'https://drive.google.com',
-        isStartDateSelected: true
-      },
-      {
-        id: `det-${Date.now()}-2`,
-        stt: 2,
-        content: 'Khởi công khoan cọc nhồi D1200 và tường vây',
-        day: '15',
-        month: '06',
-        year: '2026',
-        docNumber: '45',
-        docText: '/TB-KC',
-        driveFileName: 'Thong_bao_khoi_cong_mong_coc.pdf',
-        driveFileLink: 'https://drive.google.com',
-        isStartDateSelected: false
-      }
-    ];
+    if (project.detailItems && Array.isArray(project.detailItems)) return project.detailItems;
+    return [];
   });
 
   const [attachedSections, setAttachedSections] = useState<AttachedDocSection[]>(() => {
-    if (project.attachedSections && project.attachedSections.length > 0) return project.attachedSections;
+    if (project.attachedSections && Array.isArray(project.attachedSections) && project.attachedSections.length > 0) {
+      return project.attachedSections;
+    }
     if (project.attachedDocuments && project.attachedDocuments.length > 0) {
       return [{
         id: 'sec-1',
@@ -336,32 +328,7 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
       id: 'sec-1',
       title: 'Tài liệu kèm theo',
       note: project.attachedDocsNote || '',
-      items: [
-        {
-          id: `att-${Date.now()}-1`,
-          stt: 1,
-          content: 'Hợp đồng Tổng thầu EPC thi công xây dựng số 12/2026/HĐ-XD',
-          day: '01',
-          month: '06',
-          year: '2026',
-          docNumber: '12',
-          docText: '/2026/HĐ-XD',
-          driveFileName: 'Hop_dong_Tong_thau_EPC_12_2026.pdf',
-          driveFileLink: 'https://drive.google.com'
-        },
-        {
-          id: `att-${Date.now()}-2`,
-          stt: 2,
-          content: 'Giấy phép xây dựng số 34/GPXD Sở Xây dựng cấp',
-          day: '28',
-          month: '05',
-          year: '2026',
-          docNumber: '34',
-          docText: '/GPXD-SXD',
-          driveFileName: 'Giay_phep_xay_dung_34_GPXD.pdf',
-          driveFileLink: 'https://drive.google.com'
-        }
-      ]
+      items: []
     }];
   });
 
@@ -411,7 +378,8 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
     return {
       id: project.id,
       code: code.trim() || project.code,
-      itemType,
+      itemType: itemTypes[0] || 'project',
+      itemTypes,
       name: name.trim() || project.name,
       driveFolderPath: driveFolderPath.trim(),
       driveFolderLink: driveFolderLink.trim() || undefined,
@@ -439,7 +407,7 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
     };
   }, [
     project.id, project.code, project.name, project.holdReason, project.manager,
-    code, itemType, name, driveFolderPath, driveFolderLink, holdReason, manager,
+    code, itemType, itemTypes, name, driveFolderPath, driveFolderLink, holdReason, manager,
     startMonth, startYear, parentProjectId, parentProjectName, projectKind,
     nationalBidding, relatedPackages, objectives, notes, detailTitle, detailNote,
     status, detailItems, detailStorageLocation, attachedSections
@@ -459,7 +427,7 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
     setAutoSaveStatus('idle');
 
     setCode(project.code || 'DA-018');
-    setItemType(project.itemType || 'project');
+    setItemTypes(getProjectItemTypes(project));
     setName(project.name || '');
     setDriveFolderPath(project.driveFolderPath || `${project.startYear || '2026'}/${project.code || project.id}/`);
     setDriveFolderLink(project.driveFolderLink || '');
@@ -899,6 +867,7 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
       code: newProjCode,
       name: trimmedName,
       itemType: newProjectItemType,
+      itemTypes: [newProjectItemType],
       manager: newProjectManagerInput.trim() || manager || project.manager,
       startMonth: mm,
       startYear: yyyy,
@@ -1144,13 +1113,25 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
       return clean;
     };
 
+    const normalizeText = (t?: string) => {
+      if (!t) return '';
+      let clean = t.trim().toLowerCase();
+      clean = clean.replace(/\s+/g, '');
+      if (clean === '/' || clean === '') return '';
+      if (!clean.startsWith('/')) {
+        clean = '/' + clean;
+      }
+      return clean;
+    };
+
     const normYr = normalizeYear(yr);
+    const normText = normalizeText(item.docText);
     const parsedDay = dayStr ? parseInt(dayStr, 10) : NaN;
     const parsedMonth = monthStr ? parseInt(monthStr, 10) : NaN;
 
-    // RULE 1: Điền ô Số và Năm -> nếu trùng Số và Năm trong dự án
+    // RULE 1: Điền ô Số và Năm (+ Text ở Số văn bản) -> trùng khi cùng Số, Năm và Text trong dự án
     if (num && normYr) {
-      const numLower = num.toLowerCase();
+      const numLower = num.toLowerCase().trim();
       const isNumOnly = /^\d+$/.test(numLower);
       const parsedNum = isNumOnly ? parseInt(numLower, 10) : NaN;
 
@@ -1160,23 +1141,32 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
         const otherYr = normalizeYear(other.year?.trim() || '');
         if (!otherNum || !otherYr) return false;
 
-        // So sánh năm
+        // 1. So sánh năm
         if (otherYr !== normYr) return false;
 
-        // So sánh số: nếu cả 2 là số thì so sánh giá trị số (ví dụ: "05" trùng "5")
-        const otherNumLower = otherNum.toLowerCase();
-        if (isNumOnly && /^\d+$/.test(otherNumLower)) {
-          return parseInt(otherNumLower, 10) === parsedNum;
-        }
-        return otherNumLower === numLower;
+        // 2. So sánh số: nếu cả 2 là số thì so sánh giá trị số (ví dụ: "05" trùng "5")
+        const otherNumLower = otherNum.toLowerCase().trim();
+        const numMatches = (isNumOnly && /^\d+$/.test(otherNumLower))
+          ? parseInt(otherNumLower, 10) === parsedNum
+          : otherNumLower === numLower;
+        if (!numMatches) return false;
+
+        // 3. So sánh Text (ở Số văn bản)
+        const otherNormText = normalizeText(other.docText);
+        if (normText !== otherNormText) return false;
+
+        return true;
       });
 
       if (duplicates.length > 0) {
         const locations = duplicates.map(d => `${d.sectionTitle} (STT ${d.stt})`).join(', ');
+        const fullDocName = item.docText && item.docText.trim() !== '/'
+          ? `${num}${item.docText.trim().startsWith('/') ? item.docText.trim() : '/' + item.docText.trim()}`
+          : `Số ${num}`;
         return {
           isDuplicate: true,
           message: 'kiểm tra lại có trùng lặp',
-          detail: `Trùng Số "${num}" và Năm "${normYr}" với: ${locations}`
+          detail: `Trùng Số văn bản "${fullDocName}" và Năm "${normYr}" với: ${locations}`
         };
       }
     }
@@ -1369,43 +1359,59 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
           <div className="inline-flex items-center bg-slate-950/90 print:bg-white border border-slate-700/80 print:border-black rounded-lg p-0.5 text-xs sm:text-sm font-semibold shadow-inner">
             <button
               type="button"
-              onClick={() => setItemType('project')}
-              className={`px-3.5 py-1 rounded-md transition-all cursor-pointer ${
-                itemType === 'project'
-                  ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                  : 'text-slate-300 hover:text-white print:text-slate-700'
+              onClick={() => handleToggleItemType('project')}
+              title="Nhấp để chọn / bỏ chọn Dự án (có thể chọn 1, 2 hoặc cả 3 mục)"
+              className={`px-3 sm:px-3.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                itemTypes.includes('project')
+                  ? 'bg-emerald-600 text-white font-bold shadow-xs ring-1 ring-emerald-400 print:bg-transparent print:ring-0 print:font-black print:text-black print:underline'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60 print:text-slate-400'
               }`}
             >
-              Dự án
+              {itemTypes.includes('project') && (
+                <Check className="w-3.5 h-3.5 text-white stroke-[2.5] print:hidden" />
+              )}
+              <span>Dự án</span>
             </button>
             <span className="text-slate-600 print:text-slate-400 px-0.5 select-none font-normal">/</span>
             <button
               type="button"
-              onClick={() => setItemType('package')}
-              className={`px-3.5 py-1 rounded-md transition-all cursor-pointer ${
-                itemType === 'package'
-                  ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                  : 'text-slate-300 hover:text-white print:text-slate-700'
+              onClick={() => handleToggleItemType('package')}
+              title="Nhấp để chọn / bỏ chọn Gói thầu (có thể chọn 1, 2 hoặc cả 3 mục)"
+              className={`px-3 sm:px-3.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                itemTypes.includes('package')
+                  ? 'bg-emerald-600 text-white font-bold shadow-xs ring-1 ring-emerald-400 print:bg-transparent print:ring-0 print:font-black print:text-black print:underline'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60 print:text-slate-400'
               }`}
             >
-              Gói thầu
+              {itemTypes.includes('package') && (
+                <Check className="w-3.5 h-3.5 text-white stroke-[2.5] print:hidden" />
+              )}
+              <span>Gói thầu</span>
             </button>
             <span className="text-slate-600 print:text-slate-400 px-0.5 select-none font-normal">/</span>
             <button
               type="button"
-              onClick={() => setItemType('item')}
-              className={`px-3.5 py-1 rounded-md transition-all cursor-pointer ${
-                itemType === 'item'
-                  ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                  : 'text-slate-300 hover:text-white print:text-slate-700'
+              onClick={() => handleToggleItemType('item')}
+              title="Nhấp để chọn / bỏ chọn Hạng mục (có thể chọn 1, 2 hoặc cả 3 mục)"
+              className={`px-3 sm:px-3.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                itemTypes.includes('item')
+                  ? 'bg-emerald-600 text-white font-bold shadow-xs ring-1 ring-emerald-400 print:bg-transparent print:ring-0 print:font-black print:text-black print:underline'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60 print:text-slate-400'
               }`}
             >
-              Hạng mục
+              {itemTypes.includes('item') && (
+                <Check className="w-3.5 h-3.5 text-white stroke-[2.5] print:hidden" />
+              )}
+              <span>Hạng mục</span>
             </button>
           </div>
 
           <span className="text-lg sm:text-xl font-bold tracking-tight text-slate-100 print:text-black">
             :
+          </span>
+
+          <span className="text-xs text-slate-400 print:hidden hidden sm:inline-block italic">
+            (Có thể chọn 1, 2 hoặc cả 3 mục)
           </span>
         </div>
 
@@ -1802,13 +1808,20 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
                   );
                 })}
 
+                {relatedPackages.length === 0 && (
+                  <div className="text-xs text-slate-400 italic py-1 print:hidden">
+                    Chưa có gói thầu / dự án liên quan. Bấm &quot;+ Thêm&quot; để thêm khi cần.
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={handleAddRelatedPackage}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-700/60 px-3 py-1 rounded-lg cursor-pointer print:hidden"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-700/60 px-3 py-1.5 rounded-lg cursor-pointer print:hidden transition-colors"
+                  title="Thêm gói thầu / dự án liên quan"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Thêm</span>
+                  <span>+ Thêm</span>
                 </button>
               </div>
             </div>
@@ -2098,7 +2111,9 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="border border-slate-700 print:border-black p-1 align-top">
+                    <td className={`border border-slate-700 print:border-black p-1 align-top ${
+                      dupWarning.isDuplicate ? 'bg-rose-950/20' : ''
+                    }`}>
                       <input
                         type="text"
                         placeholder="/"
@@ -2109,7 +2124,9 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
                           }
                         }}
                         onChange={(e) => handleUpdateDetailItem(item.id, 'docText', e.target.value)}
-                        className="w-full bg-transparent border-0 px-1.5 py-1 font-mono text-xs text-slate-200 print:text-black focus:outline-none"
+                        className={`w-full bg-transparent border-0 px-1.5 py-1 font-mono text-xs text-slate-200 print:text-black focus:outline-none ${
+                          dupWarning.isDuplicate ? 'text-rose-300 font-semibold' : ''
+                        }`}
                       />
                     </td>
                     <td className="border border-slate-700 print:border-black p-2 text-center align-top">
@@ -2248,6 +2265,7 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
                                   code: section.convertedToProjectCode || `DA-005`,
                                   name: section.convertedToProjectName || section.title || 'Dự án mới',
                                   itemType: 'package',
+                                  itemTypes: ['package'],
                                   manager: manager || project.manager || 'Ban QLDA',
                                   startMonth: mm,
                                   startYear: yyyy,
@@ -2441,7 +2459,9 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
                             )}
                           </div>
                         </td>
-                        <td className="border border-slate-700 p-1 align-top">
+                        <td className={`border border-slate-700 p-1 align-top ${
+                          dupWarning.isDuplicate ? 'bg-rose-950/20' : ''
+                        }`}>
                           <input
                             type="text"
                             placeholder="/"
@@ -2452,7 +2472,9 @@ export const ProjectDetailSheet: React.FC<ProjectDetailSheetProps> = ({
                               }
                             }}
                             onChange={(e) => handleUpdateAttachedDoc(section.id, item.id, 'docText', e.target.value)}
-                            className="w-full bg-transparent border-0 px-1.5 py-1 font-mono text-xs text-slate-200 focus:outline-none"
+                            className={`w-full bg-transparent border-0 px-1.5 py-1 font-mono text-xs text-slate-200 focus:outline-none ${
+                              dupWarning.isDuplicate ? 'text-rose-300 font-semibold' : ''
+                            }`}
                           />
                         </td>
                         <td className="border border-slate-700 p-2 text-center align-top">

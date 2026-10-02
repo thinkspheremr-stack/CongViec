@@ -19,7 +19,7 @@ import {
   Check,
   Lock
 } from 'lucide-react';
-import { Project, TaskItem, CategoryInfo, TaskStatus, ProjectStatus } from '../types';
+import { Project, ItemType, getProjectItemTypes, TaskItem, CategoryInfo, TaskStatus, ProjectStatus } from '../types';
 
 interface ActiveProjectBoardProps {
   project: Project;
@@ -66,6 +66,7 @@ export const ActiveProjectBoard: React.FC<ActiveProjectBoardProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'board' | 'tasks'>(initialSubTab);
   const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [selectedItemTypeFilter, setSelectedItemTypeFilter] = useState<'all' | ItemType>('all');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
 
   const [quickTitle, setQuickTitle] = useState('');
@@ -117,11 +118,22 @@ export const ActiveProjectBoard: React.FC<ActiveProjectBoardProps> = ({
     )
   ).sort((a, b) => b.localeCompare(a));
 
+  const countProject = allProjects.filter(p => getProjectItemTypes(p).includes('project')).length;
+  const countPackage = allProjects.filter(p => getProjectItemTypes(p).includes('package')).length;
+  const countItem = allProjects.filter(p => getProjectItemTypes(p).includes('item')).length;
+
   const filteredProjects = allProjects.filter(proj => {
+    // 1. Lọc theo năm
     if (selectedYear !== 'all') {
       const projYear = getProjectStartDate(proj).year;
       if (projYear !== selectedYear) return false;
     }
+    // 2. Lọc nhanh theo Loại mục Chi tiết (Dự án, Gói thầu, Hạng mục)
+    if (selectedItemTypeFilter !== 'all') {
+      const pTypes = getProjectItemTypes(proj);
+      if (!pTypes.includes(selectedItemTypeFilter)) return false;
+    }
+    // 3. Lọc theo từ khóa tên hoặc mã
     if (searchKeyword.trim()) {
       const q = searchKeyword.trim().toLowerCase();
       const matchName = proj.name.toLowerCase().includes(q);
@@ -358,6 +370,104 @@ export const ActiveProjectBoard: React.FC<ActiveProjectBoardProps> = ({
               </div>
             </div>
 
+            {/* HÀNG TÌM KIẾM NHANH THEO MỤC CHI TIẾT (DỰ ÁN / GÓI THẦU / HẠNG MỤC) */}
+            <div className="pt-2 border-t border-emerald-800/40 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs sm:text-sm font-bold text-emerald-300 flex items-center gap-1.5 shrink-0">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Tìm kiếm nhanh:</span>
+                </span>
+
+                <div className="inline-flex items-center bg-slate-950 border border-emerald-600/70 rounded-xl p-1 gap-1 shadow-inner">
+                  {/* Tất cả */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItemTypeFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      selectedItemTypeFilter === 'all'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>Tất cả</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      selectedItemTypeFilter === 'all' ? 'bg-emerald-800 text-white' : 'bg-slate-900 text-emerald-400'
+                    }`}>
+                      {allProjects.length}
+                    </span>
+                  </button>
+
+                  {/* Dự án */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItemTypeFilter(selectedItemTypeFilter === 'project' ? 'all' : 'project')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      selectedItemTypeFilter === 'project'
+                        ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>Dự án</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      selectedItemTypeFilter === 'project' ? 'bg-emerald-800 text-white' : 'bg-slate-900 text-emerald-400'
+                    }`}>
+                      {countProject}
+                    </span>
+                  </button>
+
+                  {/* Gói thầu */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItemTypeFilter(selectedItemTypeFilter === 'package' ? 'all' : 'package')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      selectedItemTypeFilter === 'package'
+                        ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>Gói thầu</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      selectedItemTypeFilter === 'package' ? 'bg-emerald-800 text-white' : 'bg-slate-900 text-emerald-400'
+                    }`}>
+                      {countPackage}
+                    </span>
+                  </button>
+
+                  {/* Hạng mục */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItemTypeFilter(selectedItemTypeFilter === 'item' ? 'all' : 'item')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      selectedItemTypeFilter === 'item'
+                        ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>Hạng mục</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      selectedItemTypeFilter === 'item' ? 'bg-emerald-800 text-white' : 'bg-slate-900 text-emerald-400'
+                    }`}>
+                      {countItem}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {selectedItemTypeFilter !== 'all' && (
+                <div className="flex items-center gap-2 self-start md:self-auto text-xs bg-emerald-950/90 text-emerald-300 border border-emerald-600/70 px-2.5 py-1 rounded-lg">
+                  <span>Đang xem: <strong>{selectedItemTypeFilter === 'project' ? 'Dự án' : selectedItemTypeFilter === 'package' ? 'Gói thầu' : 'Hạng mục'}</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItemTypeFilter('all')}
+                    className="text-slate-400 hover:text-white ml-1 font-bold cursor-pointer"
+                    title="Bỏ lọc, hiện tất cả"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between text-xs text-emerald-300/80 pt-2 border-t border-emerald-800/40">
               <span className="italic font-medium">
                 (nếu ko lọc thì tự hiện theo thứ tự)
@@ -376,10 +486,10 @@ export const ActiveProjectBoard: React.FC<ActiveProjectBoardProps> = ({
                 <p className="text-base text-slate-300 font-bold">Không tìm thấy dự án nào phù hợp</p>
                 <button
                   type="button"
-                  onClick={() => { setSelectedYear('all'); setSearchKeyword(''); }}
+                  onClick={() => { setSelectedYear('all'); setSelectedItemTypeFilter('all'); setSearchKeyword(''); }}
                   className="mt-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 underline underline-offset-4 cursor-pointer"
                 >
-                  Xoá lọc &amp; Hiện theo thứ tự
+                  Xoá lọc &amp; Hiện tất cả theo thứ tự
                 </button>
               </div>
             ) : (
@@ -469,6 +579,26 @@ export const ActiveProjectBoard: React.FC<ActiveProjectBoardProps> = ({
                             {kindLabel}
                           </span>
                           <span className="text-[11px] text-sky-200/70 italic">(lấy mục 5)</span>
+                        </div>
+
+                        <div className="text-xs sm:text-sm text-slate-100 flex flex-wrap items-center gap-1.5 pl-4 sm:pl-6">
+                          <span className="font-semibold text-slate-200">Mục chi tiết: </span>
+                          <div className="inline-flex flex-wrap items-center gap-1.5">
+                            {getProjectItemTypes(proj).map(t => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedItemTypeFilter(t);
+                                }}
+                                title={`Lọc nhanh: chỉ hiện các dự án chọn ${t === 'project' ? 'Dự án' : t === 'package' ? 'Gói thầu' : 'Hạng mục'}`}
+                                className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-950/90 hover:bg-emerald-800 text-emerald-300 border border-emerald-500/60 shadow-xs cursor-pointer transition-colors"
+                              >
+                                {t === 'project' ? 'Dự án' : t === 'package' ? 'Gói thầu' : 'Hạng mục'}
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
                         <div className="pl-4 sm:pl-6 pt-0.5">

@@ -50,7 +50,18 @@ export const App: React.FC = () => {
   // 1. Dữ liệu chính
   const [projects, setProjects] = useState<Project[]>(() => {
     const saved = getStoredProjects();
-    return saved && saved.length > 0 ? saved : INITIAL_PROJECTS;
+    const list = saved && saved.length > 0 ? saved : INITIAL_PROJECTS;
+    return list.map(p => {
+      // Dọn sạch các gói thầu mẫu vô tình bị lưu vào dự án mới tạo trước đó
+      if (p.id !== 'proj-01' && p.id !== 'proj-1' && p.relatedPackages && p.relatedPackages.length === 2) {
+        const hasDummyMEP = p.relatedPackages.some(pkg => pkg.name.includes('Cơ điện MEP'));
+        const hasDummyPCCC = p.relatedPackages.some(pkg => pkg.name.includes('Tư vấn Thẩm tra'));
+        if (hasDummyMEP && hasDummyPCCC) {
+          return { ...p, relatedPackages: [] };
+        }
+      }
+      return p;
+    });
   });
 
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
@@ -168,6 +179,7 @@ export const App: React.FC = () => {
               code: newCode,
               name: newName,
               itemType: 'package',
+              itemTypes: ['package'],
               manager: p.manager || 'Ban QLDA',
               startMonth: startM,
               startYear: startY,
@@ -328,6 +340,7 @@ export const App: React.FC = () => {
         budget: projectData.budget || '15.000.000.000 đ',
         driveFolderPath: projectData.driveFolderPath || `2026/${newCode}/`,
         itemType: projectData.itemType || 'project',
+        itemTypes: projectData.itemTypes || (projectData.itemType ? [projectData.itemType] : ['project']),
         projectKind: projectData.projectKind || 'main',
         nationalBidding: projectData.nationalBidding || 'no',
         detailTitle: 'Chi tiết',
@@ -339,6 +352,7 @@ export const App: React.FC = () => {
             items: []
           }
         ],
+        relatedPackages: projectData.relatedPackages || [],
         createdAt: projectData.createdAt || new Date().toISOString(),
         ...projectData
       };

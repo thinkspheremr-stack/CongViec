@@ -79,11 +79,25 @@ export interface AttachedDocSection {
   convertedAt?: string;                       // Thời gian chuyển đổi
 }
 
+export type ItemType = 'project' | 'package' | 'item';
+
+export function getProjectItemTypes(project?: { itemTypes?: ItemType[]; itemType?: ItemType } | null): ItemType[] {
+  if (!project) return ['project'];
+  if (Array.isArray(project.itemTypes) && project.itemTypes.length > 0) {
+    return project.itemTypes;
+  }
+  if (project.itemType) {
+    return [project.itemType];
+  }
+  return ['project'];
+}
+
 export interface Project {
   id: string;
   code: string;            // e.g. "DA-01"
   name: string;            // Tên dự án / gói thầu / hạng mục
-  itemType?: 'project' | 'package' | 'item'; // Dự án / Gói thầu / Hạng mục
+  itemType?: ItemType; // Dự án / Gói thầu / Hạng mục (fallback)
+  itemTypes?: ItemType[]; // Chọn Dự án, Gói thầu, Hạng mục: có thể chọn 1, 2, hoặc cả 3 mục
   manager: string;         // 1. Quản lý chính (Phòng / ban quản lý)
   startMonth?: string;     // 2. Thời gian bắt đầu: Tháng
   startYear?: string;      // 2. Thời gian bắt đầu: Năm

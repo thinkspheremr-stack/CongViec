@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, FolderGit2, Sparkles } from 'lucide-react';
-import { Project } from '../types';
+import { X, FolderGit2, Sparkles, Check } from 'lucide-react';
+import { Project, ItemType, getProjectItemTypes } from '../types';
 
 interface ProjectFormModalProps {
   isOpen: boolean;
@@ -17,6 +17,20 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
 }) => {
   // 1. Tên hạng mục/ gói thầu: bắt buộc
   const [name, setName] = useState('');
+
+  // 1.1 Loại mục: Dự án / Gói thầu / Hạng mục (có thể chọn 1, 2, hoặc 3 mục)
+  const [itemTypes, setItemTypes] = useState<ItemType[]>(['project']);
+
+  const handleToggleItemType = (type: ItemType) => {
+    setItemTypes(prev => {
+      if (prev.includes(type)) {
+        if (prev.length <= 1) return prev;
+        return prev.filter(t => t !== type);
+      } else {
+        return [...prev, type];
+      }
+    });
+  };
 
   // 2. Thời gian: (Năm & Tháng)
   const currentYearStr = new Date().getFullYear().toString();
@@ -40,6 +54,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
       setYear(pYear);
       setMonth(pMonth);
       setCustomTime(existingProject.startDate || '');
+      setItemTypes(getProjectItemTypes(existingProject));
     } else {
       setName('');
       setCode(`DA-0${Math.floor(Math.random() * 90 + 10)}`);
@@ -47,6 +62,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
       setYear(currentYearStr);
       setMonth('01');
       setCustomTime('');
+      setItemTypes(['project']);
     }
   }, [existingProject, isOpen, currentYearStr]);
 
@@ -82,7 +98,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
       targetDate: targetDateStr,
       driveFolderPath: finalDrivePath,
       status: existingProject?.status || 'in_progress',
-      itemType: existingProject?.itemType || 'project',
+      itemType: itemTypes[0] || 'project',
+      itemTypes,
     });
     onClose();
   };
@@ -121,6 +138,51 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
               required
               className="w-full bg-slate-50 hover:bg-white border-2 border-slate-300 focus:border-blue-600 rounded-xl px-3.5 py-2.5 text-sm sm:text-base text-slate-900 font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
             />
+          </div>
+
+          {/* Phân loại mục Chi tiết: Dự án / Gói thầu / Hạng mục */}
+          <div className="space-y-1.5">
+            <label className="block text-sm sm:text-base font-semibold text-slate-900">
+              Phân loại mục Chi tiết: <span className="text-xs text-slate-500 font-normal italic">(chọn 1 mục, 2 mục hoặc cả 3 mục)</span>
+            </label>
+            <div className="inline-flex flex-wrap items-center bg-slate-100 border-2 border-slate-300 rounded-xl p-1 gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleToggleItemType('project')}
+                className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  itemTypes.includes('project')
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                {itemTypes.includes('project') && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                <span>Dự án</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleItemType('package')}
+                className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  itemTypes.includes('package')
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                {itemTypes.includes('package') && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                <span>Gói thầu</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleItemType('item')}
+                className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  itemTypes.includes('item')
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                {itemTypes.includes('item') && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                <span>Hạng mục</span>
+              </button>
+            </div>
           </div>
 
           {/* 2. Thời gian: */}
